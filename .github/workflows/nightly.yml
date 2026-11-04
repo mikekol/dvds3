@@ -13,91 +13,230 @@ on:
     tags:
     - "v*"
 jobs:
-#  build-linux:
-#    name: 'Linux 64bit'
-#    runs-on: ubuntu-26.04
-#    env:
-#      obs-studio-version: 33.0.0
-#      project-name: dvd-screensaver
-#      project-git: dvds3
-#      maintainer: uni@vrsal.xyz
-#    steps:
-#    - name: Checkout
-#      uses: actions/checkout@v4
-#      with:
-#        path: ${{ github.workspace }}
-#        fetch-depth: 0
-#    - name: 'Get ${{ env.project-git }} git info'
-#      shell: bash
-#      working-directory: ${{ github.workspace }}
-#      run: |
-#        echo "GIT_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-#        echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-#        echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
-#    - name: Install dependencies
-#      shell: bash
-#      run: |
-#        set -ex
-#
-#        sudo add-apt-repository -y ppa:obsproject/obs-studio
-#        sudo apt-get -qq update
-#
-#        # The plugin's only dependency is libobs (+ SIMDe, which libobs' CMake config needs)
-#        sudo apt-get install -y \
-#          build-essential \
-#          checkinstall \
-#          cmake \
-#          libobs-dev \
-#          libsimde-dev
-#
-#        # Fail early if the OBS SDK on this runner is older than the target
-#        libobs_version=$(dpkg-query -W -f='${Version}' libobs-dev)
-#        dpkg --compare-versions "$libobs_version" ge "${{ env.obs-studio-version }}" \
-#          || { echo "libobs-dev $libobs_version is older than ${{ env.obs-studio-version }}"; exit 1; }
-#        dpkg -L libobs-dev | grep -q 'libobsConfig.cmake$' \
-#          || { echo "libobs-dev has no CMake package config"; exit 1; }
-#    - name: Build plugin
-#      shell: bash
-#      run: |
-#        cmake -S ${{github.workspace}} -B ${{github.workspace}}/build/ -G "Unix Makefiles" \
-#          -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/dist
-#        cmake --build ${{github.workspace}}/build/ --parallel 4 --target install
-#    - name: Compile deb installer
-#      shell: bash
-#      run: | # Now only build deb installer
-#          cmake ${{github.workspace}} -B ${{github.workspace}}/build \
-#            -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_VERBOSE_MAKEFILE=true \
-#            -DGLOBAL_INSTALLATION=ON
-#          sudo cmake --build ${{github.workspace}}/build \
-#            --parallel 4 \
-#            --target install
-#          cd ${{github.workspace}}
-#          export GIT_HASH=$(git rev-parse --short HEAD)
-#          export GIT_TAG=$(git describe --tags --abbrev=0)
-#          export PKG_VERSION="1-$GIT_TAG-$GIT_HASH-git"
-#
-#          [[ "$GITHUB_REF" =~ "^refs/tags/" ]] && export PKG_VERSION="$BRANCH_SHORT_NAME"
-#          cd ${{github.workspace}}/build
-#          echo "Packaging version ${PKG_VERSION}"
-#          PAGER="cat" sudo checkinstall -y --type=debian --fstrans=no --nodoc \
-#            --backup=no --deldoc=yes --install=no \
-#            --pkgname=${{ env.project-name }} --pkgversion="$PKG_VERSION" \
-#            --pkglicense="GPLv2.0" --maintainer="${{ env.maintainer }}" \
-#            --pkggroup="video" \
-#            --pkgsource="https://github.com/${{ env.GITHUB_REPOSITORY }}" \
-#            --requires="obs-studio \(\>= ${{ env.obs-studio-version }}\)" \
-#            --pakdir="../package"
-#          mv ../package/*.deb ../package/${{ env.project-name }}.${{ env.GIT_TAG }}.linux.x64.deb
-#    - name: Publish Linux binary
-#      uses: actions/upload-artifact@v4
-#      with:
-#        name: ${{ env.project-name }}.${{ env.GIT_TAG }}.bin.linux.x64
-#        path: ${{github.workspace}}/dist/**/*
-#    - name: Publish Linux installer
-#      uses: actions/upload-artifact@v4
-#      with:
-#        name: ${{ env.project-name }}.${{ env.GIT_TAG }}.installer.linux.x64
-#        path: ${{github.workspace}}/package/*.deb
+  linux:
+    name: 'Linux 64bit'
+    runs-on: ubuntu-26.04
+    env:
+      OBS_VERSION: '33.0.0'
+      project-git: dvds3
+      project-name: dvd-screensaver
+      maintainer: uni@vrsal.xyz
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: ${{ github.workspace }}/${{ env.project-git }}
+          fetch-depth: 0
+      - name: 'Checkout OBS-Studio ${{ env.OBS_VERSION }}'
+        uses: actions/checkout@v7
+        with:
+          repository: obsproject/obs-studio
+          ref: ${{ env.OBS_VERSION }}
+          path: ${{ github.workspace }}/obs-studio
+      - name: 'Get ${{ env.project-git }} git info'
+        shell: bash
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        run: |
+          echo "GIT_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          # Fall back to the commit hash when the repo has no tags, so artifact names are never empty
+          HASH=$(git rev-parse --short HEAD)
+          GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "g${HASH}")
+          echo "GIT_TAG=${GIT_TAG}" >> $GITHUB_ENV
+      - name: 'Install build dependencies'
+        shell: bash
+        run: |
+          set -ex
+          sudo apt-get update -qq
+          # Everything libobs and the Qt-based frontend configure step need. The OBS PPA is not used:
+          # its libobs-dev lags the OBS 33 requirement on newer Ubuntu releases.
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            build-essential cmake pkg-config extra-cmake-modules checkinstall \
+            libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev \
+            libswresample-dev libswscale-dev libx264-dev libcurl4-openssl-dev libjansson-dev \
+            libfontconfig-dev libasound2-dev libdrm-dev libegl-dev libgl-dev libgles-dev \
+            libglvnd-dev libluajit-5.1-dev libpci-dev libpulse-dev libsimde-dev libsrt-openssl-dev \
+            libudev-dev libv4l-dev libvulkan-dev libwayland-dev libx11-dev libx11-xcb-dev \
+            libxcb1-dev libxcb-composite0-dev libxcb-cursor-dev libxcb-icccm4-dev libxcb-keysyms1-dev \
+            libxcb-randr0-dev libxcb-shm0-dev libxcb-util-dev libxcb-xfixes0-dev libxcb-xinerama0-dev \
+            libxcb-xinput-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libzstd-dev \
+            nlohmann-json3-dev python3-dev qt6-base-dev qt6-base-private-dev qt6-tools-dev \
+            libqt6svg6-dev uthash-dev
+      - name: 'Restore OBS SDK ${{ env.OBS_VERSION }} from cache'
+        id: cache-obs-sdk
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/obs-sdk
+          key: ${{ runner.os }}-obs-sdk-${{ env.OBS_VERSION }}
+      - name: 'Build OBS-Studio libobs ${{ env.OBS_VERSION }} (64-bit)'
+        if: steps.cache-obs-sdk.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: ${{ github.workspace }}/obs-studio
+        run: |
+          set -ex
+          # Same options as the Windows job: the plugin links only libobs
+          cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/obs-sdk" \
+            -DENABLE_UI=OFF -DENABLE_PLUGINS=OFF -DENABLE_SCRIPTING=OFF -DENABLE_BROWSER=OFF \
+            -DENABLE_FRONTEND_API=OFF -DENABLE_TESTS=OFF -DENABLE_AJA=OFF -DENABLE_VLC=OFF \
+            -DENABLE_NEW_MPEGTS_OUTPUT=OFF -DCOPIED_DEPENDENCIES=NO -DCOPY_DEPENDENCIES=NO
+          # The frontend API install rule is unconditional, so its target must be built too
+          cmake --build build --target libobs obs-frontend-api --parallel
+          cmake --install build --component Development
+          test -f "${{ github.workspace }}/obs-sdk/lib/cmake/libobs/libobsConfig.cmake"
+      - name: 'Configure ${{ env.project-git }} 64-bit'
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        shell: bash
+        run: |
+          cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -Dlibobs_DIR="${{ github.workspace }}/obs-sdk/lib/cmake/libobs"
+      - name: 'Build ${{ env.project-git }} 64-bit'
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        shell: bash
+        run: cmake --build build --parallel
+      - name: 'Package ${{ env.project-git }} (zip layout)'
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        shell: bash
+        run: cmake --install build --prefix "${{ github.workspace }}/stage"
+      - name: 'Build ${{ env.project-git }} deb installer'
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        shell: bash
+        run: |
+          set -ex
+          # checkinstall runs "make install", so this configure uses the Makefile generator and a /usr prefix
+          cmake -S . -B build-deb -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_PREFIX=/usr -DGLOBAL_INSTALLATION=ON \
+            -Dlibobs_DIR="${{ github.workspace }}/obs-sdk/lib/cmake/libobs"
+          cmake --build build-deb --parallel
+          # Debian versions must start with a digit; strip the "v" from release tags
+          PKG_VERSION="${GIT_TAG#v}"
+          case "$PKG_VERSION" in
+            [0-9]*) ;;
+            *) PKG_VERSION="0+${PKG_VERSION}" ;;
+          esac
+          DEB_DIR="${{ runner.temp }}/deb"
+          mkdir -p "$DEB_DIR"
+          cd build-deb
+          PAGER=cat sudo checkinstall -y --type=debian --fstrans=no --nodoc \
+            --backup=no --deldoc=yes --install=no \
+            --pkgname=${{ env.project-name }} --pkgversion="$PKG_VERSION" \
+            --pkglicense="GPLv2.0" --maintainer="${{ env.maintainer }}" \
+            --pkggroup="video" \
+            --pkgsource="https://github.com/${{ github.repository }}" \
+            --requires="obs-studio (>= ${{ env.OBS_VERSION }})" \
+            --pakdir="$DEB_DIR"
+          sudo chown "$(id -u):$(id -g)" "$DEB_DIR"/*.deb
+          mv "$DEB_DIR"/*.deb "${{ github.workspace }}/${{ env.project-git }}/${{ env.project-name }}.${GIT_TAG}.linux.x64.deb"
+      - name: 'Publish Linux binary'
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: '${{ env.project-name }}.${{ env.GIT_TAG }}.bin.linux.x64'
+          path: ${{ github.workspace }}/stage/**/*
+      - name: 'Publish Linux installer'
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: '${{ env.project-name }}.${{ env.GIT_TAG }}.installer.linux.x64'
+          path: ${{ github.workspace }}/${{ env.project-git }}/${{ env.project-name }}.${{ env.GIT_TAG }}.linux.x64.deb
+  macos:
+    name: 'macOS universal'
+    runs-on: macos-latest
+    env:
+      OBS_VERSION: '33.0.0'
+      MACOS_DEPS_VERSION: '2026-10-23'
+      MACOS_DEPLOYMENT_TARGET: '13.0'
+      project-git: dvds3
+      project-name: dvd-screensaver
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: ${{ github.workspace }}/${{ env.project-git }}
+          fetch-depth: 0
+      - name: 'Checkout OBS-Studio ${{ env.OBS_VERSION }}'
+        uses: actions/checkout@v7
+        with:
+          repository: obsproject/obs-studio
+          ref: ${{ env.OBS_VERSION }}
+          path: ${{ github.workspace }}/obs-studio
+      - name: 'Get ${{ env.project-git }} git info'
+        shell: bash
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        run: |
+          echo "GIT_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          # Fall back to the commit hash when the repo has no tags, so artifact names are never empty
+          HASH=$(git rev-parse --short HEAD)
+          GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "g${HASH}")
+          echo "GIT_TAG=${GIT_TAG}" >> $GITHUB_ENV
+      - name: 'Install build tools'
+        shell: bash
+        run: brew install pkg-config
+      - name: 'Restore OBS dependencies ${{ env.MACOS_DEPS_VERSION }} from cache'
+        id: cache-obs-deps
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/obs-deps
+          key: ${{ runner.os }}-obs-deps-${{ env.MACOS_DEPS_VERSION }}
+      - name: 'Install prerequisite: Pre-built OBS dependencies (universal)'
+        if: steps.cache-obs-deps.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -ex
+          # Qt6 ships as its own archive; the frontend subtree needs it at configure time
+          mkdir -p "${{ github.workspace }}/obs-deps"
+          for name in macos-deps macos-deps-qt6; do
+            curl -L -o "$name.tar.xz" "https://github.com/obsproject/obs-deps/releases/download/${{ env.MACOS_DEPS_VERSION }}/$name-${{ env.MACOS_DEPS_VERSION }}-universal.tar.xz" --retry 5 -C -
+            tar -xf "$name.tar.xz" -C "${{ github.workspace }}/obs-deps"
+          done
+      - name: 'Restore OBS SDK ${{ env.OBS_VERSION }} from cache'
+        id: cache-obs-sdk
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/obs-sdk
+          key: ${{ runner.os }}-obs-sdk-${{ env.OBS_VERSION }}-deps-${{ env.MACOS_DEPS_VERSION }}
+      - name: 'Build OBS-Studio libobs ${{ env.OBS_VERSION }} (universal)'
+        if: steps.cache-obs-sdk.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: ${{ github.workspace }}/obs-studio
+        run: |
+          set -ex
+          cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.MACOS_DEPLOYMENT_TARGET }} \
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/obs-deps" \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/obs-sdk" \
+            -DENABLE_UI=OFF -DENABLE_PLUGINS=OFF -DENABLE_SCRIPTING=OFF -DENABLE_BROWSER=OFF \
+            -DENABLE_FRONTEND_API=OFF -DENABLE_TESTS=OFF -DENABLE_AJA=OFF -DENABLE_VLC=OFF \
+            -DENABLE_NEW_MPEGTS_OUTPUT=OFF -DCOPIED_DEPENDENCIES=NO -DCOPY_DEPENDENCIES=NO
+          # The frontend API install rule is unconditional, so its target must be built too
+          cmake --build build --target libobs obs-frontend-api --parallel
+          cmake --install build --component Development
+          test -f "${{ github.workspace }}/obs-sdk/lib/cmake/libobs/libobsConfig.cmake"
+      - name: 'Configure ${{ env.project-git }} (universal)'
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        shell: bash
+        run: |
+          cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.MACOS_DEPLOYMENT_TARGET }} \
+            -DCMAKE_PREFIX_PATH="${{ github.workspace }}/obs-deps" \
+            -Dlibobs_DIR="${{ github.workspace }}/obs-sdk/lib/cmake/libobs"
+      - name: 'Build ${{ env.project-git }} (universal)'
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        shell: bash
+        run: cmake --build build --parallel
+      - name: 'Package ${{ env.project-git }}'
+        working-directory: ${{ github.workspace }}/${{ env.project-git }}
+        shell: bash
+        run: cmake --install build --prefix "${{ github.workspace }}/stage"
+      - name: 'Publish macOS binary'
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: '${{ env.project-name }}.${{ env.GIT_TAG }}.bin.macos.universal'
+          path: ${{ github.workspace }}/stage/**/*
   windows:
     name: 'Windows 64bit'
     runs-on: windows-latest

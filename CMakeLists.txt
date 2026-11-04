@@ -65,7 +65,8 @@ add_library(dvd-screensaver MODULE src/dvd.c)
 target_include_directories(dvd-screensaver PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(dvd-screensaver PRIVATE OBS::libobs)
 
-if(UNIX AND NOT APPLE)
+if(UNIX)
+    # OBS loads plugins by file name, so drop the "lib" prefix on macOS as well as Linux
     target_compile_definitions(dvd-screensaver PRIVATE UNIX=1)
     set_target_properties(dvd-screensaver PROPERTIES PREFIX "")
 endif()
@@ -115,4 +116,12 @@ elseif(UNIX AND NOT APPLE)
         install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/package/README.txt"
             DESTINATION "${CMAKE_PROJECT_NAME}")
     endif()
+elseif(APPLE)
+    # For *.zip binary: the same relocatable layout as Linux, unpacked into the OBS plugins folder
+    install(TARGETS dvd-screensaver
+        LIBRARY DESTINATION "${CMAKE_PROJECT_NAME}/bin/${OBS_ARCH_NAME}")
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data
+        DESTINATION "${CMAKE_PROJECT_NAME}")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/package/README.txt"
+        DESTINATION "${CMAKE_PROJECT_NAME}")
 endif()
