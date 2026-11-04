@@ -28,7 +28,9 @@
 
 #define FILTER_NAME "dvd-filter"
 #define SOURCE_NAME "dvd-image"
-#define DVD_SOURCE_ID "obs_dvd_screensaver" /* Kept from the original plugin so existing scenes keep loading */
+#define DVD_SOURCE_ID "dvds3_source"
+/* ID of the previously distributed build; also registered so existing scenes keep loading */
+#define LEGACY_SOURCE_ID "obs_dvd_screensaver"
 
 #define S_SOURCE_CX "source_cx"
 #define S_SOURCE_CY "source_cy"
@@ -342,7 +344,8 @@ static bool dvd_enum_global_sources(void *param, obs_source_t *current)
 	const char *name = obs_source_get_name(current);
 	const char *id = obs_source_get_id(current);
 	if (data->this == current || (flags & OBS_SOURCE_VIDEO) == 0 ||
-	    strcmp(name, SOURCE_NAME) == 0 || strcmp(id, DVD_SOURCE_ID) == 0)
+	    strcmp(name, SOURCE_NAME) == 0 ||
+	    strcmp(id, DVD_SOURCE_ID) == 0 || strcmp(id, LEGACY_SOURCE_ID) == 0)
 		return true;
 	char *tmp = bzalloc(512);
 	char *tmp2 = bzalloc(512);
@@ -480,10 +483,16 @@ static struct obs_source_info dvd_source_info = {
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("dvd-screensaver", "en-US")
 
+/* Same source, registered under the legacy ID */
+static struct obs_source_info dvd_source_info_legacy;
+
 bool obs_module_load(void)
 {
 	/* (blog) is the libobs function; the parentheses stop the blog() macro above from expanding */
 	(blog)(LOG_INFO, "[dvd-screensaver] version %s", PLUGIN_VERSION_FULL);
 	obs_register_source(&dvd_source_info);
+	dvd_source_info_legacy = dvd_source_info;
+	dvd_source_info_legacy.id = LEGACY_SOURCE_ID;
+	obs_register_source(&dvd_source_info_legacy);
 	return true;
 }
