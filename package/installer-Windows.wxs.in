@@ -21,16 +21,8 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- Find the OBS Studio install folder (64-bit registry view). Falls back to the default location. -->
-    <Property Id="OBSINSTALLPATH">
-      <RegistrySearch Id="ObsInstallPathSearch" Root="HKLM" Key="SOFTWARE\OBS Studio" Type="raw" Bitness="always64" />
-    </Property>
-    <!-- Default the install folder to the registered OBS location when one exists (the package is x64, so this is the 64-bit view) -->
-    <!-- Only when OBSDIR was not given on the command line (msiexec OBSDIR=...) -->
-    <SetDirectory Id="OBSDIR" Value="[OBSINSTALLPATH]" Condition="OBSINSTALLPATH AND NOT OBSDIR" />
-
+    <!-- Default: the 64-bit OBS Studio folder. The installer's folder page (or msiexec OBSDIR=...) can change it. -->
     <StandardDirectory Id="ProgramFiles64Folder">
-      <!-- Default folder when OBS is not registered; the installer's folder page can change it -->
       <Directory Id="OBSDIR" Name="obs-studio">
         <Directory Id="OBSPLUGINS" Name="obs-plugins">
           <Directory Id="OBSPLUGINS64" Name="64bit">
