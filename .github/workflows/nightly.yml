@@ -153,7 +153,8 @@ jobs:
           cmake --build build64 --config RelWithDebInfo --target libobs obs-frontend-api --parallel
           cmake --install build64 --config RelWithDebInfo --component Development
           if ($LASTEXITCODE -ne 0) { throw "OBS SDK install failed" }
-          foreach ($f in @("obs-sdk\cmake\libobsConfig.cmake", "obs-sdk\include\obs.h", "obs-sdk\lib\obs.lib", "obs-sdk\cmake\w32-pthreadsConfig.cmake")) {
+          # Paths are absolute: this step runs in obs-studio/, but the SDK was installed to the workspace root
+          foreach ($f in @("${{ github.workspace }}\obs-sdk\cmake\libobsConfig.cmake", "${{ github.workspace }}\obs-sdk\include\obs.h", "${{ github.workspace }}\obs-sdk\lib\obs.lib", "${{ github.workspace }}\obs-sdk\cmake\w32-pthreadsConfig.cmake")) {
             if (-not (Test-Path $f)) { throw "Missing OBS SDK file: $f" }
           }
       - name: 'Configure ${{ env.project-git }} 64-bit'
