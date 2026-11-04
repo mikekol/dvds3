@@ -27,7 +27,7 @@
 
 #define FILTER_NAME "dvd-filter"
 #define SOURCE_NAME "dvd-image"
-#define DVD_SOURCE_ID "dvds3_source"
+#define DVD_SOURCE_ID "obs_dvd_screensaver" /* Kept from the original plugin so existing scenes keep loading */
 
 #define S_SOURCE_CX "source_cx"
 #define S_SOURCE_CY "source_cy"

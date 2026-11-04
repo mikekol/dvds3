@@ -13,91 +13,91 @@ on:
     tags:
     - "v*"
 jobs:
-  build-linux:
-    name: 'Linux 64bit'
-    runs-on: ubuntu-26.04
-    env:
-      obs-studio-version: 33.0.0
-      project-name: dvd-screensaver
-      project-git: dvds3
-      maintainer: uni@vrsal.xyz
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        path: ${{ github.workspace }}
-        fetch-depth: 0
-    - name: 'Get ${{ env.project-git }} git info'
-      shell: bash
-      working-directory: ${{ github.workspace }}
-      run: |
-        echo "GIT_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-        echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
-    - name: Install dependencies
-      shell: bash
-      run: |
-        set -ex
-
-        sudo add-apt-repository -y ppa:obsproject/obs-studio
-        sudo apt-get -qq update
-
-        # The plugin's only dependency is libobs (+ SIMDe, which libobs' CMake config needs)
-        sudo apt-get install -y \
-          build-essential \
-          checkinstall \
-          cmake \
-          libobs-dev \
-          libsimde-dev
-
-        # Fail early if the OBS SDK on this runner is older than the target
-        libobs_version=$(dpkg-query -W -f='${Version}' libobs-dev)
-        dpkg --compare-versions "$libobs_version" ge "${{ env.obs-studio-version }}" \
-          || { echo "libobs-dev $libobs_version is older than ${{ env.obs-studio-version }}"; exit 1; }
-        dpkg -L libobs-dev | grep -q 'libobsConfig.cmake$' \
-          || { echo "libobs-dev has no CMake package config"; exit 1; }
-    - name: Build plugin
-      shell: bash
-      run: |
-        cmake -S ${{github.workspace}} -B ${{github.workspace}}/build/ -G "Unix Makefiles" \
-          -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/dist
-        cmake --build ${{github.workspace}}/build/ --parallel 4 --target install
-    - name: Compile deb installer
-      shell: bash
-      run: | # Now only build deb installer
-          cmake ${{github.workspace}} -B ${{github.workspace}}/build \
-            -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_VERBOSE_MAKEFILE=true \
-            -DGLOBAL_INSTALLATION=ON
-          sudo cmake --build ${{github.workspace}}/build \
-            --parallel 4 \
-            --target install
-          cd ${{github.workspace}}
-          export GIT_HASH=$(git rev-parse --short HEAD)
-          export GIT_TAG=$(git describe --tags --abbrev=0)
-          export PKG_VERSION="1-$GIT_TAG-$GIT_HASH-git"
-
-          [[ "$GITHUB_REF" =~ "^refs/tags/" ]] && export PKG_VERSION="$BRANCH_SHORT_NAME"
-          cd ${{github.workspace}}/build
-          echo "Packaging version ${PKG_VERSION}"
-          PAGER="cat" sudo checkinstall -y --type=debian --fstrans=no --nodoc \
-            --backup=no --deldoc=yes --install=no \
-            --pkgname=${{ env.project-name }} --pkgversion="$PKG_VERSION" \
-            --pkglicense="GPLv2.0" --maintainer="${{ env.maintainer }}" \
-            --pkggroup="video" \
-            --pkgsource="https://github.com/${{ env.GITHUB_REPOSITORY }}" \
-            --requires="obs-studio \(\>= ${{ env.obs-studio-version }}\)" \
-            --pakdir="../package"
-          mv ../package/*.deb ../package/${{ env.project-name }}.${{ env.GIT_TAG }}.linux.x64.deb
-    - name: Publish Linux binary
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.project-name }}.${{ env.GIT_TAG }}.bin.linux.x64
-        path: ${{github.workspace}}/dist/**/*
-    - name: Publish Linux installer
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.project-name }}.${{ env.GIT_TAG }}.installer.linux.x64
-        path: ${{github.workspace}}/package/*.deb
+#  build-linux:
+#    name: 'Linux 64bit'
+#    runs-on: ubuntu-26.04
+#    env:
+#      obs-studio-version: 33.0.0
+#      project-name: dvd-screensaver
+#      project-git: dvds3
+#      maintainer: uni@vrsal.xyz
+#    steps:
+#    - name: Checkout
+#      uses: actions/checkout@v4
+#      with:
+#        path: ${{ github.workspace }}
+#        fetch-depth: 0
+#    - name: 'Get ${{ env.project-git }} git info'
+#      shell: bash
+#      working-directory: ${{ github.workspace }}
+#      run: |
+#        echo "GIT_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+#        echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+#        echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+#    - name: Install dependencies
+#      shell: bash
+#      run: |
+#        set -ex
+#
+#        sudo add-apt-repository -y ppa:obsproject/obs-studio
+#        sudo apt-get -qq update
+#
+#        # The plugin's only dependency is libobs (+ SIMDe, which libobs' CMake config needs)
+#        sudo apt-get install -y \
+#          build-essential \
+#          checkinstall \
+#          cmake \
+#          libobs-dev \
+#          libsimde-dev
+#
+#        # Fail early if the OBS SDK on this runner is older than the target
+#        libobs_version=$(dpkg-query -W -f='${Version}' libobs-dev)
+#        dpkg --compare-versions "$libobs_version" ge "${{ env.obs-studio-version }}" \
+#          || { echo "libobs-dev $libobs_version is older than ${{ env.obs-studio-version }}"; exit 1; }
+#        dpkg -L libobs-dev | grep -q 'libobsConfig.cmake$' \
+#          || { echo "libobs-dev has no CMake package config"; exit 1; }
+#    - name: Build plugin
+#      shell: bash
+#      run: |
+#        cmake -S ${{github.workspace}} -B ${{github.workspace}}/build/ -G "Unix Makefiles" \
+#          -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/dist
+#        cmake --build ${{github.workspace}}/build/ --parallel 4 --target install
+#    - name: Compile deb installer
+#      shell: bash
+#      run: | # Now only build deb installer
+#          cmake ${{github.workspace}} -B ${{github.workspace}}/build \
+#            -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_VERBOSE_MAKEFILE=true \
+#            -DGLOBAL_INSTALLATION=ON
+#          sudo cmake --build ${{github.workspace}}/build \
+#            --parallel 4 \
+#            --target install
+#          cd ${{github.workspace}}
+#          export GIT_HASH=$(git rev-parse --short HEAD)
+#          export GIT_TAG=$(git describe --tags --abbrev=0)
+#          export PKG_VERSION="1-$GIT_TAG-$GIT_HASH-git"
+#
+#          [[ "$GITHUB_REF" =~ "^refs/tags/" ]] && export PKG_VERSION="$BRANCH_SHORT_NAME"
+#          cd ${{github.workspace}}/build
+#          echo "Packaging version ${PKG_VERSION}"
+#          PAGER="cat" sudo checkinstall -y --type=debian --fstrans=no --nodoc \
+#            --backup=no --deldoc=yes --install=no \
+#            --pkgname=${{ env.project-name }} --pkgversion="$PKG_VERSION" \
+#            --pkglicense="GPLv2.0" --maintainer="${{ env.maintainer }}" \
+#            --pkggroup="video" \
+#            --pkgsource="https://github.com/${{ env.GITHUB_REPOSITORY }}" \
+#            --requires="obs-studio \(\>= ${{ env.obs-studio-version }}\)" \
+#            --pakdir="../package"
+#          mv ../package/*.deb ../package/${{ env.project-name }}.${{ env.GIT_TAG }}.linux.x64.deb
+#    - name: Publish Linux binary
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: ${{ env.project-name }}.${{ env.GIT_TAG }}.bin.linux.x64
+#        path: ${{github.workspace}}/dist/**/*
+#    - name: Publish Linux installer
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: ${{ env.project-name }}.${{ env.GIT_TAG }}.installer.linux.x64
+#        path: ${{github.workspace}}/package/*.deb
   windows:
     name: 'Windows 64bit'
     runs-on: windows-latest
@@ -109,12 +109,12 @@ jobs:
       project-name: dvd-screensaver
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: ${{ github.workspace }}/${{ env.project-git }}
           fetch-depth: 0
       - name: 'Checkout OBS-Studio ${{ env.OBS_VERSION }}'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: obsproject/obs-studio
           ref: ${{ env.OBS_VERSION }}
@@ -125,7 +125,10 @@ jobs:
         run: |
           echo "GIT_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
           echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          # Fall back to the commit hash when the repo has no tags, so artifact names are never empty
+          HASH=$(git rev-parse --short HEAD)
+          GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "g${HASH}")
+          echo "GIT_TAG=${GIT_TAG}" >> $GITHUB_ENV
       - name: 'Install prerequisite: Pre-built OBS dependencies (x64)'
         shell: pwsh
         run: |
@@ -133,7 +136,7 @@ jobs:
           Expand-Archive -Path deps.zip -DestinationPath "${{ github.workspace }}\cmbuild\deps\win64" -Force
       - name: 'Restore OBS 64-bit SDK v${{ env.OBS_VERSION }} from cache'
         id: cache-obs-sdk
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/obs-sdk
           key: ${{ runner.os }}-obs-sdk-${{ env.OBS_VERSION }}-deps-${{ env.WINDOWS_DEPS_VERSION }}
@@ -153,7 +156,8 @@ jobs:
           cmake --build build64 --config RelWithDebInfo --target libobs obs-frontend-api --parallel
           cmake --install build64 --config RelWithDebInfo --component Development
           if ($LASTEXITCODE -ne 0) { throw "OBS SDK install failed" }
-          foreach ($f in @("obs-sdk\cmake\libobsConfig.cmake", "obs-sdk\include\obs.h", "obs-sdk\lib\obs.lib", "obs-sdk\cmake\w32-pthreadsConfig.cmake")) {
+          # Paths are absolute: this step runs in obs-studio/, but the SDK was installed to the workspace root
+          foreach ($f in @("${{ github.workspace }}\obs-sdk\cmake\libobsConfig.cmake", "${{ github.workspace }}\obs-sdk\include\obs.h", "${{ github.workspace }}\obs-sdk\lib\obs.lib", "${{ github.workspace }}\obs-sdk\cmake\w32-pthreadsConfig.cmake")) {
             if (-not (Test-Path $f)) { throw "Missing OBS SDK file: $f" }
           }
       - name: 'Configure ${{ env.project-git }} 64-bit'
@@ -189,20 +193,20 @@ jobs:
           # package\README.txt is generated by configure (see CMakeLists.txt)
           Copy-Item package\README.txt release\
 
-          wix build .\package\installer-Windows.wxs -ext WixToolset.UI.wixext `
+          wix build .\package\installer-Windows.wxs -arch x64 -ext WixToolset.UI.wixext `
             -d "PluginDll=build64\RelWithDebInfo\${{ env.project-name }}.dll" -d "DataDir=data" `
             -d "ReadmeFile=package\README.txt" -d "LicenseRtf=package\LICENSE.rtf" `
             -o "${{ env.project-name }}.${{ env.GIT_TAG }}.installer.windows.msi"
           if ($LASTEXITCODE -ne 0) { throw "WiX build failed" }
       - name: 'Publish Windows binary'
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: '${{ env.project-name }}.${{ env.GIT_TAG }}.bin.windows'
           path: ${{ github.workspace }}/${{ env.project-git }}/release/**/*
       - name: 'Publish Windows installer'
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: '${{ env.project-name }}.${{ env.GIT_TAG }}.installer.windows'
           path: ${{ github.workspace }}/${{ env.project-git }}/*.msi
