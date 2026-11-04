@@ -1,0 +1,37 @@
+#!/bin/sh
+# pre-commit hook: increments the build number in version.json and stages it
+# so the bump is included in the commit being created.
+#
+# The build number is HEAD's committed build + 1, so an aborted or amended
+# commit does not double-bump. The first commit of version.json keeps its
+# build number as-is. A missing or unparseable version.json never blocks a commit.
+#
+# Registered via: git config core.hooksPath .githooks  (CMake does this at configure time)
+# Bypass for a single commit with: git commit --no-verify
+
+set -e
+
+root=$(git rev-parse --show-toplevel)
+file="$root/version.json"
+[ -f "$file" ] || exit 0
+
+# Print the "build" number from a JSON document on stdin
+read_build() {
+	sed -n 's/.*"build"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1
+}
+
+current=$(read_build < "$file")
+[ -n "$current" ] || exit 0
+
+committed=$(git show HEAD:version.json 2>/dev/null | read_build || true)
+if [ -n "$committed" ]; then
+	next=$((committed + 1))
+else
+	next=$current
+fi
+
+sed -i "s/\"build\"[[:space:]]*:[[:space:]]*[0-9][0-9]*/\"build\": $next/" "$file"
+git add "$file"
+
+version=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$file" | head -n 1)
+echo "[version] $version+$next"

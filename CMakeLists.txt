@@ -1,5 +1,23 @@
 cmake_minimum_required(VERSION 3.28)
-project(dvd-screensaver VERSION 1.1.0 LANGUAGES C)
+
+# Version comes from version.json: "version" is the MAJOR.MINOR.PATCH release (edited by hand),
+# "build" is incremented by the .githooks/pre-commit hook on every commit.
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/version.json" _version_json)
+string(JSON _base_version GET "${_version_json}" version)
+string(JSON _build_number GET "${_version_json}" build)
+set(PLUGIN_VERSION_FULL "${_base_version}+${_build_number}")
+
+project(dvd-screensaver VERSION ${_base_version} LANGUAGES C)
+
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/version.json")
+
+# Register the git hooks (the CMake equivalent of an npm "prepare" script)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND git config core.hooksPath .githooks
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        OUTPUT_QUIET ERROR_QUIET)
+endif()
 
 set(PLUGIN_AUTHOR "univrsal")
 set(PLUGIN_GIT dvds3)
@@ -41,7 +59,10 @@ configure_file(
 # Point libobs_DIR at <obs-install-prefix>/lib/cmake/libobs (or the build tree equivalent).
 find_package(libobs 33 REQUIRED)
 
+configure_file(src/version.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h @ONLY)
+
 add_library(dvd-screensaver MODULE src/dvd.c)
+target_include_directories(dvd-screensaver PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(dvd-screensaver PRIVATE OBS::libobs)
 
 if(UNIX AND NOT APPLE)

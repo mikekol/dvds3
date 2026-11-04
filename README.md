@@ -48,3 +48,18 @@ Install the `libobs-dev` and `libsimde-dev` packages from the OBS PPA (`ppa:obsp
 ## Continuous integration
 
 `.github/workflows/nightly.yml` builds the Linux `.deb` and the Windows x64 zip and installer. The Windows job builds libobs from the OBS 33.0.0 tag, using the same overrides as above.
+
+## Versioning
+
+The plugin version lives in `version.json` at the repo root:
+
+```json
+{ "version": "1.1.0", "build": 0 }
+```
+
+- `version` is the `MAJOR.MINOR.PATCH` release. Bump it by hand for releases.
+- `build` is incremented automatically by the `.githooks/pre-commit` hook on every commit.
+
+The full version is rendered as semver build metadata, `1.1.0+N`. The plugin logs it when OBS loads it, and CMake generates it into `version.h`.
+
+The hooks are registered when CMake configures the project (`git config core.hooksPath .githooks`). To register them without configuring, run that command yourself. The hook is a plain shell script with no dependencies beyond git and sed. To skip the bump for one commit, use `git commit --no-verify`.

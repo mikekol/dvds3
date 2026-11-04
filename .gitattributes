@@ -1,0 +1,2 @@
+# The git hooks are shell/Node scripts that must keep LF endings on every platform
+.githooks/* text eol=lf

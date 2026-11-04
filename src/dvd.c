@@ -16,6 +16,7 @@
 
 #include <graphics/image-file.h>
 #include <obs-module.h>
+#include "version.h"
 
 #define blog(log_level, format, ...)                  \
 	blog(log_level, "[dvd_source: '%s'] " format, \
@@ -481,6 +482,8 @@ OBS_MODULE_USE_DEFAULT_LOCALE("dvd-screensaver", "en-US")
 
 bool obs_module_load(void)
 {
+	/* (blog) is the libobs function; the parentheses stop the blog() macro above from expanding */
+	(blog)(LOG_INFO, "[dvd-screensaver] version %s", PLUGIN_VERSION_FULL);
 	obs_register_source(&dvd_source_info);
 	return true;
 }

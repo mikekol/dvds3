@@ -1,0 +1,5 @@
+/* Generated from version.json by CMake; do not edit. */
+#pragma once
+
+#define PLUGIN_VERSION "@PROJECT_VERSION@"
+#define PLUGIN_VERSION_FULL "@PLUGIN_VERSION_FULL@"
