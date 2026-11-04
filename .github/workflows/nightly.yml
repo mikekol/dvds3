@@ -203,7 +203,8 @@ jobs:
         working-directory: ${{ github.workspace }}/obs-studio
         run: |
           set -ex
-          cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          # OBS refuses to configure on macOS with any generator except Xcode
+          cmake -S . -B build -G "Xcode" -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.MACOS_DEPLOYMENT_TARGET }} \
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}/obs-deps" \
@@ -212,8 +213,8 @@ jobs:
             -DENABLE_FRONTEND_API=OFF -DENABLE_TESTS=OFF -DENABLE_AJA=OFF -DENABLE_VLC=OFF \
             -DENABLE_NEW_MPEGTS_OUTPUT=OFF -DCOPIED_DEPENDENCIES=NO -DCOPY_DEPENDENCIES=NO
           # The frontend API install rule is unconditional, so its target must be built too
-          cmake --build build --target libobs obs-frontend-api --parallel
-          cmake --install build --component Development
+          cmake --build build --config RelWithDebInfo --target libobs obs-frontend-api --parallel
+          cmake --install build --config RelWithDebInfo --component Development
           # On macOS libobs is a framework, so its CMake package lives inside the bundle
           test -f "${{ github.workspace }}/obs-sdk/Frameworks/libobs.framework/Resources/cmake/libobsConfig.cmake"
       - name: 'Configure ${{ env.project-git }} (universal)'
