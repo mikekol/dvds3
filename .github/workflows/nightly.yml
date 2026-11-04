@@ -48,8 +48,8 @@ jobs:
         run: |
           set -ex
           sudo apt-get update -qq
-          # Everything libobs and the Qt-based frontend configure step need. The OBS PPA is not used:
-          # its libobs-dev lags the OBS 33 requirement on newer Ubuntu releases.
+          # Everything libobs and the Qt-based frontend configure step need. libobs itself is built from
+          # source below, because the Ubuntu archive ships libobs 32.1, which is older than OBS 33.
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
             build-essential cmake pkg-config extra-cmake-modules checkinstall \
             libavcodec-dev libavdevice-dev libavfilter-dev libavformat-dev libavutil-dev \
@@ -213,7 +213,8 @@ jobs:
           # The frontend API install rule is unconditional, so its target must be built too
           cmake --build build --target libobs obs-frontend-api --parallel
           cmake --install build --component Development
-          test -f "${{ github.workspace }}/obs-sdk/lib/cmake/libobs/libobsConfig.cmake"
+          # On macOS libobs is a framework, so its CMake package lives inside the bundle
+          test -f "${{ github.workspace }}/obs-sdk/Frameworks/libobs.framework/Resources/cmake/libobsConfig.cmake"
       - name: 'Configure ${{ env.project-git }} (universal)'
         working-directory: ${{ github.workspace }}/${{ env.project-git }}
         shell: bash
@@ -222,7 +223,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=${{ env.MACOS_DEPLOYMENT_TARGET }} \
             -DCMAKE_PREFIX_PATH="${{ github.workspace }}/obs-deps" \
-            -Dlibobs_DIR="${{ github.workspace }}/obs-sdk/lib/cmake/libobs"
+            -Dlibobs_DIR="${{ github.workspace }}/obs-sdk/Frameworks/libobs.framework/Resources/cmake"
       - name: 'Build ${{ env.project-git }} (universal)'
         working-directory: ${{ github.workspace }}/${{ env.project-git }}
         shell: bash

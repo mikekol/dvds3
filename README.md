@@ -69,9 +69,9 @@ Build libobs the same way, with the universal architectures and the OBS macOS de
 
 - `<obs-deps>` is the extracted `macos-deps-<date>-universal.tar.xz` from [obs-deps releases](https://github.com/obsproject/obs-deps/releases).
 - Add `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DCMAKE_PREFIX_PATH=<obs-deps>` to both the libobs and the plugin configure steps.
-- The plugin configure uses `-Dlibobs_DIR=<obs-sdk>/lib/cmake/libobs`.
+- On macOS libobs is a framework, so the plugin configure uses `-Dlibobs_DIR=<obs-sdk>/Frameworks/libobs.framework/Resources/cmake`.
 
-The plugin is `build/dvd-screensaver.so`. It has no `lib` prefix, which OBS needs. The macOS build is not signed or notarized.
+The plugin is `build/dvd-screensaver.so`. It has no `lib` prefix, which OBS needs. `cmake --install build --prefix <dir>` writes the zip layout (`dvd-screensaver/bin/64bit/dvd-screensaver.so`), which matches the plugin folder OBS searches on macOS. The macOS build is not signed or notarized, and it has not been loaded in OBS yet.
 
 ## Continuous integration
 

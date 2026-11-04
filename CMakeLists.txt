@@ -117,7 +117,7 @@ elseif(UNIX AND NOT APPLE)
             DESTINATION "${CMAKE_PROJECT_NAME}")
     endif()
 elseif(APPLE)
-    # For *.zip binary: the same relocatable layout as Linux, unpacked into the OBS plugins folder
+    # For *.zip binary: the same layout as Linux (plugins/<name>/bin/64bit), which OBS searches on macOS
     install(TARGETS dvd-screensaver
         LIBRARY DESTINATION "${CMAKE_PROJECT_NAME}/bin/${OBS_ARCH_NAME}")
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data
