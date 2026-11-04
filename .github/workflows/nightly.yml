@@ -109,12 +109,12 @@ jobs:
       project-name: dvd-screensaver
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: ${{ github.workspace }}/${{ env.project-git }}
           fetch-depth: 0
       - name: 'Checkout OBS-Studio ${{ env.OBS_VERSION }}'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: obsproject/obs-studio
           ref: ${{ env.OBS_VERSION }}
@@ -125,7 +125,10 @@ jobs:
         run: |
           echo "GIT_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
           echo "GIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          echo "GIT_TAG=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
+          # Fall back to the commit hash when the repo has no tags, so artifact names are never empty
+          HASH=$(git rev-parse --short HEAD)
+          GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "g${HASH}")
+          echo "GIT_TAG=${GIT_TAG}" >> $GITHUB_ENV
       - name: 'Install prerequisite: Pre-built OBS dependencies (x64)'
         shell: pwsh
         run: |
@@ -133,7 +136,7 @@ jobs:
           Expand-Archive -Path deps.zip -DestinationPath "${{ github.workspace }}\cmbuild\deps\win64" -Force
       - name: 'Restore OBS 64-bit SDK v${{ env.OBS_VERSION }} from cache'
         id: cache-obs-sdk
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/obs-sdk
           key: ${{ runner.os }}-obs-sdk-${{ env.OBS_VERSION }}-deps-${{ env.WINDOWS_DEPS_VERSION }}
@@ -197,13 +200,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "WiX build failed" }
       - name: 'Publish Windows binary'
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: '${{ env.project-name }}.${{ env.GIT_TAG }}.bin.windows'
           path: ${{ github.workspace }}/${{ env.project-git }}/release/**/*
       - name: 'Publish Windows installer'
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: '${{ env.project-name }}.${{ env.GIT_TAG }}.installer.windows'
           path: ${{ github.workspace }}/${{ env.project-git }}/*.msi
